@@ -50,7 +50,25 @@ Requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/) y 
 
 5. Para detenerla sin perder los datos, usa `docker compose down`. Para borrar también los datos, `docker compose down -v`.
 
-Las instrucciones para ejecutar el backend se agregarán cuando exista.
+### Backend
+
+```powershell
+cd backend
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
+
+Ejecutar los tests:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Levantar la API (documentación interactiva en http://127.0.0.1:8000/docs):
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
 
 ## Stack previsto
 
