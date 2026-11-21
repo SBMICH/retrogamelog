@@ -265,7 +265,4 @@ Regla: `device_id` debe pertenecer al mismo usuario que `user_game_id`. Se valid
 1. **Historial en `log_entries`**, separado del estado actual. Permite rejugadas, historial completo y estadísticas por año. Se quitaron `started_on` y `finished_on` de `user_games` para no guardar el mismo dato en dos lugares.
 2. **`device_models` y `emulators` como catálogos compartidos.** Evitan duplicados ("RP5" frente a "Retroid Pocket 5") y dejan lista la agregación de la v0.3.
 3. **Géneros en tabla propia con relación muchos a muchos**, porque un juego puede tener varios y H2 pide filtrar por género.
-
-## Pendiente
-
-- Qué hacer si un usuario tiene un dispositivo o emulador que no está en el catálogo. Propuesta para la v0.1: lo agregamos nosotros a pedido; más adelante, un formulario de sugerencias.
+4. **Catálogo de dispositivos y emuladores cargado por nosotros.** Se arranca con una lista corta de los más usados y se amplía a pedido de los usuarios. No se intenta cubrir todo el mercado desde el inicio.
