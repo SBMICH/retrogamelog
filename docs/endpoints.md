@@ -34,8 +34,8 @@ API REST con FastAPI. Documentación interactiva generada automáticamente en `/
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| POST | `/api/v1/auth/register` | No | Crea una cuenta. Cuerpo: `email`, `username`, `password`. Responde 201 con el usuario (sin contraseña) |
-| POST | `/api/v1/auth/login` | No | Recibe `username` y `password` como formulario (flujo OAuth2 password) y devuelve `{ "access_token": "...", "token_type": "bearer" }` |
+| POST | `/api/v1/auth/register` | No | Crea una cuenta. Cuerpo: `email`, `username` (nombre público), `password`. El email se guarda en minúsculas. 409 si el email o el username ya existen. Responde 201 con el usuario (sin contraseña) |
+| POST | `/api/v1/auth/login` | No | Inicia sesión con **email y contraseña**. Se envía como formulario (flujo OAuth2 password); el campo del formulario se llama `username` por el estándar, pero lleva el email. Devuelve `{ "access_token": "...", "token_type": "bearer" }` |
 | GET | `/api/v1/me` | Sí | Datos del usuario autenticado |
 
 ## Catálogo (H2, H3)
@@ -47,7 +47,8 @@ Solo lectura para los usuarios. Se llena con scripts de importación.
 | GET | `/api/v1/platforms` | No | Lista de consolas |
 | GET | `/api/v1/genres` | No | Lista de géneros |
 | GET | `/api/v1/games` | No | Busca juegos. Filtros: `q` (título), `platform_id`, `genre_id`, `year`. Paginado |
-| GET | `/api/v1/games/{game_id}` | No | Ficha de un juego. Si `details_fetched_at` es `null`, pide los detalles a RetroAchievements, los guarda y luego responde |
+| GET | `/api/v1/games/{game_id}` | No | Ficha de un juego con lo que ya está guardado. Es solo lectura: nunca llama a la API externa. Si `details_fetched_at` es `null`, la ficha aún no tiene carátula, género, año ni desarrollador |
+| POST | `/api/v1/games/{game_id}/details` | Sí | Descarga los detalles del juego desde RetroAchievements y los guarda. Si ya estaban guardados, responde con ellos sin llamar a la API. Bloquea la fila mientras descarga para que dos peticiones simultáneas no hagan dos llamadas. Tiene límite de peticiones por usuario. El frontend lo llama cuando la ficha llega sin detalles |
 | GET | `/api/v1/device-models` | No | Lista de modelos de dispositivo |
 | GET | `/api/v1/emulators` | No | Lista de emuladores |
 
@@ -56,9 +57,9 @@ Solo lectura para los usuarios. Se llena con scripts de importación.
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
 | GET | `/api/v1/me/games` | Sí | Mis juegos. Filtros: `status`, `platform_id`. Orden: `sort` (`updated`, `title`, `rating`, `priority`). Paginado |
-| POST | `/api/v1/me/games` | Sí | Agrega un juego a mi registro. Cuerpo: `game_id`, `status`, y opcionales `rating`, `notes`, `priority`. 409 si ya lo tengo |
+| POST | `/api/v1/me/games` | Sí | Agrega un juego a mi registro. Cuerpo: `game_id`, `status`, y opcionales `status_date` (fecha en que empezó, terminó o abandonó el juego; por defecto, hoy), `rating`, `notes`, `priority`. Crea la entrada de historial que corresponda (ver tabla de transiciones en `diseno-bd.md`). 409 si ya lo tengo |
 | GET | `/api/v1/me/games/{user_game_id}` | Sí | Detalle de un juego de mi registro, con su historial y sus configuraciones |
-| PATCH | `/api/v1/me/games/{user_game_id}` | Sí | Cambia estado, calificación, notas o prioridad. Si cambia `status`, crea la entrada de historial correspondiente |
+| PATCH | `/api/v1/me/games/{user_game_id}` | Sí | Cambia estado, calificación, notas o prioridad. Si cambia `status`, acepta `status_date` (por defecto, hoy) y crea la entrada de historial que indica la tabla de transiciones de `diseno-bd.md` |
 | DELETE | `/api/v1/me/games/{user_game_id}` | Sí | Quita el juego de mi registro, con su historial y configuraciones |
 
 ## Historial (H6)
@@ -94,7 +95,8 @@ Las configuraciones de un juego se leen dentro de `GET /api/v1/me/games/{user_ga
 ## Decisiones
 
 1. **Solo token de acceso en la v0.1, sin token de refresco.** El token dura un tiempo limitado (por ejemplo 60 minutos) y luego hay que volver a iniciar sesión. Los tokens de refresco se pueden añadir después sin romper nada.
-2. **Login como formulario OAuth2.** Es lo que FastAPI espera para que el botón "Authorize" de `/docs` funcione, y facilita probar la API a mano.
+2. **Login con email, enviado como formulario OAuth2.** Es lo que FastAPI espera para que el botón "Authorize" de `/docs` funcione, y facilita probar la API a mano. El estándar llama `username` al campo, pero en esta API lleva el email. El username público es otra cosa y se elige al registrarse.
+6. **Los GET nunca escriben ni llaman a APIs externas.** La descarga de detalles de un juego es un POST autenticado y con límite de peticiones, para que nadie pueda agotar la cuota de RetroAchievements desde fuera.
 3. **404 en lugar de 403 para recursos ajenos.** Así no se revela que existe un registro con ese ID.
 4. **Rutas cortas para editar y borrar** (`/me/log/{entry_id}`, `/me/setups/{setup_id}`): el ID ya identifica el recurso, no hace falta anidarlo bajo el juego.
 5. **Las rutas públicas de la v0.2** (perfiles, reseñas, listas) irán bajo `/api/v1/users/{username}/...` y no chocan con estas.

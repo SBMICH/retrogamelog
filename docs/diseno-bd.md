@@ -190,8 +190,8 @@ Cuentas de usuario (H1).
 | Columna | Tipo | Reglas |
 |---|---|---|
 | id | serial | Clave primaria |
-| email | varchar(255) | Único, obligatorio |
-| username | varchar(30) | Único, obligatorio |
+| email | varchar(255) | Obligatorio. Se guarda siempre en minúsculas y es único. Sirve solo para iniciar sesión y nunca se muestra a otros usuarios |
+| username | varchar(30) | Obligatorio. Nombre público que elige el usuario (3 a 30 caracteres: letras, números, `_` y `-`). Único sin distinguir mayúsculas |
 | password_hash | varchar(255) | Obligatorio. Nunca se guarda la contraseña en texto plano |
 | is_public | boolean | Por defecto `false`. Se usará en la v0.2, pero se crea desde ya |
 | created_at | timestamptz | Por defecto `now()` |
@@ -227,7 +227,29 @@ El historial: qué pasó con un juego y cuándo (H6, H9). `user_games` dice dón
 | note | text | Opcional |
 | created_at | timestamptz | Por defecto `now()` |
 
-Regla de negocio: al cambiar `status` en `user_games`, el backend crea la entrada correspondiente (por ejemplo, pasar a `completed` crea una entrada `completed` con la fecha de hoy, editable).
+Regla de negocio: al agregar un juego o cambiar su `status` en `user_games`, el backend crea la entrada de historial que indica esta tabla. La fecha (`entry_date`) es la que envía el usuario en `status_date`; si no la envía, es la de hoy.
+
+| Estado anterior | Estado nuevo | Entrada creada |
+|---|---|---|
+| (juego nuevo) | `backlog` | ninguna |
+| (juego nuevo) | `playing` | `started` |
+| (juego nuevo) | `completed` | `completed` |
+| (juego nuevo) | `dropped` | `dropped` |
+| `backlog` | `playing` | `started` |
+| `backlog` | `completed` | `completed` |
+| `backlog` | `dropped` | `dropped` |
+| `playing` | `completed` | `completed` |
+| `playing` | `dropped` | `dropped` |
+| `playing` | `backlog` | ninguna |
+| `completed` | `playing` | `replayed` |
+| `completed` | `dropped` | `dropped` |
+| `completed` | `backlog` | ninguna |
+| `dropped` | `playing` | `started` |
+| `dropped` | `completed` | `completed` |
+| `dropped` | `backlog` | ninguna |
+| cualquiera | el mismo | ninguna |
+
+Las entradas de tipo `note` solo se crean a mano, con `POST /me/games/{id}/log`.
 
 ### devices
 Los dispositivos de cada usuario (H8).
@@ -266,3 +288,17 @@ Regla: `device_id` debe pertenecer al mismo usuario que `user_game_id`. Se valid
 2. **`device_models` y `emulators` como catálogos compartidos.** Evitan duplicados ("RP5" frente a "Retroid Pocket 5") y dejan lista la agregación de la v0.3.
 3. **Géneros en tabla propia con relación muchos a muchos**, porque un juego puede tener varios y H2 pide filtrar por género.
 4. **Catálogo de dispositivos y emuladores cargado por nosotros.** Se arranca con una lista corta de los más usados y se amplía a pedido de los usuarios. No se intenta cubrir todo el mercado desde el inicio.
+5. **Correo en minúsculas y username público.** El correo se normaliza a minúsculas para que `Ana@mail.com` y `ana@mail.com` no sean cuentas distintas. El username es un nombre público independiente del correo.
+
+## Reglas de borrado
+
+| Se borra | Qué pasa con lo que depende de él |
+|---|---|
+| Un usuario | Se borra todo lo suyo: registro, historial, dispositivos y configuraciones |
+| Un juego de mi registro (`user_games`) | Se borran su historial y sus configuraciones |
+| Un dispositivo | No se puede si tiene configuraciones asociadas (409). Hay que borrarlas o reasignarlas antes, para no perder ese dato por accidente |
+| Un juego, plataforma, género, modelo o emulador del catálogo | No se borran desde la API; solo los administra el equipo |
+
+## Pendiente
+
+- **Búsqueda por título (H2):** un índice normal no acelera búsquedas del tipo "contiene". Al implementar H2 se evaluará la extensión `pg_trgm` de PostgreSQL.
