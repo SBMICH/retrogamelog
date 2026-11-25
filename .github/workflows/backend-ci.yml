@@ -51,7 +51,9 @@ jobs:
           cache-dependency-path: backend/requirements*.txt
 
       - name: Instalar dependencias
-        run: python -m pip install -r requirements-dev.txt
+        # Solo paquetes ya compilados (wheels): evita ejecutar scripts de
+        # instalacion de paquetes fuente durante el CI.
+        run: python -m pip install --only-binary :all: -r requirements-dev.txt
 
       - name: Ejecutar pytest
         env:
