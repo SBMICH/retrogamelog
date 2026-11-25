@@ -1,0 +1,54 @@
+:root {
+  --bg: #f6f5f1;
+  --fg: #1f2328;
+  --muted: #4b5563;
+  --card: #ffffff;
+  --border: #d0d7de;
+  --ok-bg: #dcfce7;
+  --ok-fg: #14532d;
+  --err-bg: #fee2e2;
+  --err-fg: #7f1d1d;
+  --wait-bg: #e5e7eb;
+  --wait-fg: #1f2937;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+.page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem;
+}
+
+h1 { font-size: 2.25rem; margin: 0 0 0.25rem; }
+h2 { font-size: 1.1rem; margin: 0 0 0.75rem; }
+p { color: var(--muted); }
+
+.api-status {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.badge {
+  display: inline-block;
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-loading { background: var(--wait-bg); color: var(--wait-fg); }
+.badge-connected { background: var(--ok-bg); color: var(--ok-fg); }
+.badge-unavailable { background: var(--err-bg); color: var(--err-fg); }
+
+.detail { margin: 0.75rem 0 0; font-size: 0.95rem; }
