@@ -1,0 +1,15 @@
+# Normaliza el texto del repositorio a LF (el repo se usa desde Windows).
+* text=auto eol=lf
+
+# Binarios: no tocar.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
