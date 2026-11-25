@@ -1,0 +1,66 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Privilegio minimo: el workflow solo necesita leer el repositorio.
+permissions:
+  contents: read
+
+# Cancela ejecuciones obsoletas de la misma rama o PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests del backend (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # Base de datos efimera para los tests. Estas credenciales (test/test) no
+    # son secretos: pertenecen a un contenedor que vive solo durante la
+    # ejecucion en el runner y no es accesible desde fuera.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Instalar dependencias
+        # Solo paquetes ya compilados (wheels): evita ejecutar scripts de
+        # instalacion de paquetes fuente durante el CI.
+        run: python -m pip install --only-binary :all: -r requirements-dev.txt
+
+      - name: Ejecutar pytest
+        env:
+          # Credenciales de la base efimera de arriba, no un secreto.
+          DATABASE_URL: postgresql+psycopg://test:test@localhost:5432/test
+        run: python -m pytest
+
+  # Pendiente: job de SonarCloud (analisis estatico y cobertura). Debera
+  # depender de "tests" (needs: tests), generar coverage.xml y usar el secreto
+  # SONAR_TOKEN, que aun no existe. No implementar hasta su issue.
