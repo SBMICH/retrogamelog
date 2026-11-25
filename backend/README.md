@@ -12,11 +12,14 @@ py -3.12 -m venv .venv
 
 ## Configuración
 
-Todo se lee de variables de entorno. Por ahora solo una:
+Todo se lee de variables de entorno:
 
-| Variable | Ejemplo |
-|---|---|
-| `DATABASE_URL` | `postgresql+psycopg://usuario:clave@localhost:5432/retrogamelog` |
+| Variable | Obligatoria | Ejemplo |
+|---|---|---|
+| `DATABASE_URL` | Sí | `postgresql+psycopg://usuario:clave@localhost:5432/retrogamelog` |
+| `CORS_ORIGINS` | No | `https://retrogamelog.example,https://www.retrogamelog.example` |
+
+`CORS_ORIGINS` es la lista (separada por comas) de orígenes del frontend a los que el navegador deja llamar a la API. Si no se define, se usan los de desarrollo local (`http://localhost:5173` y `http://127.0.0.1:5173`). No se admite `*`, y cada origen debe empezar por `http://` o `https://`. En producción hay que definirla con la URL real del frontend.
 
 ## Migraciones (Alembic)
 
