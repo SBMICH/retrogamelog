@@ -277,6 +277,20 @@ En qué dispositivo y con qué emulador se jugó un juego del registro, y cómo 
 
 Regla: `device_id` debe pertenecer al mismo usuario que `user_game_id`. Se valida en el backend.
 
+## Seguridad
+
+### login_attempts
+Intentos de inicio de sesión recientes. No se relaciona con `users`, porque también se anotan correos sin cuenta (así el bloqueo no revela qué cuentas existen).
+
+| Columna | Tipo | Reglas |
+|---|---|---|
+| email | varchar(255) | Clave primaria. Normalizado como en `users` |
+| failures | int | Intentos desde el último inicio correcto |
+| locked_until | timestamptz | `null` si no está bloqueado |
+| last_attempt_at | timestamptz | Por defecto `now()` |
+
+Regla de negocio: al quinto intento fallido se fija `locked_until` 15 minutos después. Un inicio correcto borra la fila.
+
 ## Lo que no necesita tabla
 
 - **Estadísticas (H9):** consultas sobre `user_games` y `log_entries`. Por ejemplo, terminados por año = entradas `completed` agrupadas por año de `entry_date`; por consola = `user_games` unido con `games` y `platforms`.
