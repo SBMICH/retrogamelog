@@ -1,0 +1,4 @@
+$kind: collection
+description: >-
+  Pruebas de la API de RetroGameLog en marcha. Ejecutar completa y en orden: cada ejecución crea
+  sus propios datos de prueba.
