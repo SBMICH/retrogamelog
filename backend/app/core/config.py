@@ -9,6 +9,9 @@ MIN_JWT_SECRET_LENGTH = 32
 DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 60
 # Sin token de refresco, un token robado vale hasta que caduca: no más de una semana.
 MAX_ACCESS_TOKEN_EXPIRE_MINUTES = 7 * 24 * 60
+# Tras estos fallos con un mismo correo, no se admiten más intentos durante el bloqueo.
+MAX_FAILED_LOGINS = 5
+LOGIN_LOCK_MINUTES = 15
 
 
 @dataclass(frozen=True)

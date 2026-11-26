@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import AppAuthSettings, DbSession
+from app.core.login_limit import clear_login_attempts, reserve_login_attempt
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
     create_access_token,
@@ -53,18 +54,24 @@ def register(data: UserRegister, db: DbSession) -> User:
     return user
 
 
-def authenticate(db: Session, email: str, password: str) -> User | None:
+def normalize_login_email(value: str) -> str | None:
+    """El email tal como se guarda, o None si no puede ser el de ninguna cuenta."""
+    try:
+        return email_adapter.validate_python(value)
+    except ValidationError:
+        return None
+
+
+def authenticate(db: Session, email: str | None, password: str) -> User | None:
+    """`email` es el resultado de normalize_login_email."""
     # Una contraseña más larga que el máximo no puede ser de ninguna cuenta. Se descarta antes de
     # mirar el email, así que no revela nada.
     if len(password) > PASSWORD_MAX_LENGTH:
         return None
 
-    try:
-        normalized = email_adapter.validate_python(email)
-    except ValidationError:
-        user = None
-    else:
-        user = db.scalar(select(User).where(func.lower(User.email) == func.lower(normalized)))
+    user = None
+    if email is not None:
+        user = db.scalar(select(User).where(func.lower(User.email) == func.lower(email)))
 
     # Siempre se verifica un hash, exista o no la cuenta, para que el tiempo no la delate.
     password_ok = verify_password(user.password_hash if user else DUMMY_PASSWORD_HASH, password)
@@ -74,7 +81,10 @@ def authenticate(db: Session, email: str, password: str) -> User | None:
 @router.post(
     "/login",
     response_model=Token,
-    responses={401: {"description": "Email o contraseña incorrectos"}},
+    responses={
+        401: {"description": "Email o contraseña incorrectos"},
+        429: {"description": "Demasiados intentos fallidos con ese correo"},
+    },
 )
 def login(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -82,12 +92,24 @@ def login(
     settings: AppAuthSettings,
 ) -> Token:
     """Formulario OAuth2: el campo `username` lleva el **email**."""
-    user = authenticate(db, form.username, form.password)
+    email = normalize_login_email(form.username)
+    # Se cuenta igual exista o no la cuenta, para que el bloqueo no la delate.
+    if email is not None:
+        retry_after = reserve_login_attempt(db, email)
+        if retry_after is not None:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Demasiados intentos fallidos. Vuelve a intentarlo más tarde.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+    user = authenticate(db, email, form.password)
     if user is None:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    clear_login_attempts(db, email)
     token = create_access_token(user.id, settings.jwt_secret, settings.access_token_expire_minutes)
     return Token(access_token=token)

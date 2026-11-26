@@ -1,5 +1,6 @@
 from app.models.catalog import DeviceModel, Emulator, Game, GameGenre, Genre, Platform
 from app.models.enums import GameStatus, LogKind, Performance
+from app.models.login_attempt import LoginAttempt
 from app.models.user_data import Device, LogEntry, PlaySetup, User, UserGame
 
 __all__ = [
@@ -12,6 +13,7 @@ __all__ = [
     "Genre",
     "LogEntry",
     "LogKind",
+    "LoginAttempt",
     "Performance",
     "PlaySetup",
     "Platform",

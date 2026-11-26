@@ -12,4 +12,4 @@ def test_migracion_se_aplica_y_se_revierte(schema):
 
     command.upgrade(alembic_config(), "head")
     assert set(Base.metadata.tables) <= set(inspect(engine).get_table_names())
-    assert len(Base.metadata.tables) == 11
+    assert len(Base.metadata.tables) == 12
