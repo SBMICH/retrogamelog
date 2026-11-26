@@ -20,6 +20,7 @@ Todo se lee de variables de entorno:
 | `JWT_SECRET` | Sí, para la API | cadena aleatoria de 32 caracteres o más (ver abajo) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `60` (por defecto) |
 | `CORS_ORIGINS` | No | `https://retrogamelog.example,https://www.retrogamelog.example` |
+| `RETROACHIEVEMENTS_API_KEY` | Solo para importar el catálogo | (tu clave de la API web; es un secreto) |
 
 `CORS_ORIGINS` es la lista (separada por comas) de orígenes del frontend a los que el navegador deja llamar a la API. Si no se define, se usan los de desarrollo local (`http://localhost:5173` y `http://127.0.0.1:5173`). No se admite `*`, y cada origen debe empezar por `http://` o `https://`. En producción hay que definirla con la URL real del frontend.
 
@@ -85,6 +86,61 @@ $env:DATABASE_URL = "postgresql+psycopg://..."
 .\.venv\Scripts\alembic.exe downgrade base    # revertir todo
 .\.venv\Scripts\alembic.exe revision --autogenerate -m "descripción"
 ```
+
+## Importar el catálogo (RetroAchievements)
+
+`python -m app.importers` llena las tablas `platforms` y `games` con la [API web de RetroAchievements](https://api-docs.retroachievements.org/). La API de RetroGameLog nunca llama a este comando: se ejecuta a mano.
+
+| Opción | Efecto |
+|---|---|
+| (ninguna) | Importa NES, SNES, Game Boy Advance y Mega Drive |
+| `--consolas snes gba` | Importa solo esas. Admite los alias `nes`, `snes`, `gba`, `megadrive` (o `md`), el nombre exacto de la API entre comillas o su ID |
+| `--simular` | Consulta la API y la base y muestra lo que haría, sin escribir |
+
+No se importan los hacks (títulos con `~Hack~`) ni los subconjuntos de logros (`[Subset - ...]`), según la [convención de nombres de RetroAchievements](https://docs.retroachievements.org/guidelines/content/game-info-and-hub-guidelines.html). Los juegos caseros, prototipos, demos y sin licencia sí entran. El comando dice cuántos excluye, y con `--simular` muestra ejemplos. No borra juegos que ya estén guardados.
+
+### Primera importación real
+
+1. En tu cuenta de RetroAchievements, abre el [panel de control](https://retroachievements.org/controlpanel.php) y copia la clave de la API web (sección "Keys"). Es un secreto: no la escribas en archivos del repositorio, en commits ni en el frontend.
+2. Desde `backend/`, con PostgreSQL en marcha, define la base y aplica las migraciones:
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://usuario:clave@localhost:5432/retrogamelog"
+.\.venv\Scripts\alembic.exe upgrade head
+```
+
+3. Define la clave solo en esta terminal. `Read-Host` evita que quede en el historial de PowerShell:
+
+```powershell
+$env:RETROACHIEVEMENTS_API_KEY = Read-Host "Clave de la API de RetroAchievements"
+```
+
+4. Haz primero una simulación y revisa los totales:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.importers --simular
+```
+
+5. Si el resultado es el esperado, importa y después borra la clave de la terminal:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.importers
+```
+
+```powershell
+Remove-Item Env:RETROACHIEVEMENTS_API_KEY
+```
+
+### Cómo se comporta
+
+- **Llamadas:** una para la lista de consolas (de ahí salen los ID) y una por cada consola, con 1 segundo de pausa. La simulación hace las mismas llamadas, así que no la repitas sin necesidad: la API limita las peticiones y pide cachear sus respuestas (la copia es la propia base de datos).
+- **Errores temporales** (fallos de red, 408, 429 y errores 5xx habituales): hasta 4 intentos por llamada, con esperas de 2, 4 y 8 segundos, o lo que pida la cabecera `Retry-After` hasta un máximo de 120. Los demás errores no se reintentan.
+- **Repetir la importación** no duplica filas. Actualiza el nombre de la consola y el título, la consola y el icono de cada juego (sobrescribe cambios hechos a mano en esos campos). No borra juegos, no vacía valores y no toca `short_name`, `manufacturer`, `release_year`, `developer`, `cover_url` ni `details_fetched_at`.
+- **Fallos a mitad:** cada consola se guarda en una transacción propia. Si una falla, no queda nada de ella, las anteriores se conservan y el comando indica cuáles faltan; vuelve a ejecutarlo con `--consolas` para esas.
+- **Códigos de salida:** `0` correcto, `1` falló la API o la base, `2` configuración o argumentos incorrectos.
+- **Qué no se guarda:** el importador no pide los hashes de ROMs ni guarda enlaces a ROMs. De cada juego lee solo su ID, título, consola e icono.
+
+Antes de publicar la demo hay que confirmar con RetroAchievements (canal `#coders` de su Discord) que sus términos permiten guardar y mostrar estos datos en una app pública.
 
 ## Tests
 
