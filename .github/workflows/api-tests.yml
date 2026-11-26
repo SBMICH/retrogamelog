@@ -1,0 +1,96 @@
+name: API (Postman)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Privilegio minimo: el workflow solo necesita leer el repositorio.
+permissions:
+  contents: read
+
+# Cancela ejecuciones obsoletas de la misma rama o PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postman:
+    name: Tests de la API (Postman)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Base de datos efimera. Estas credenciales (test/test) no son secretos:
+    # pertenecen a un contenedor que solo vive durante la ejecucion.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://test:test@127.0.0.1:5432/test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # La herramienta de terceros que se ejecuta despues no necesita el token.
+          persist-credentials: false
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Instalar la API
+        working-directory: backend
+        run: |
+          python -m pip install --only-binary :all: -r requirements.txt
+
+      - name: Instalar Postman CLI
+        # Version fija. --ignore-scripts: su script de instalacion no hace falta.
+        run: |
+          npm install --prefix "$RUNNER_TEMP/postman" --ignore-scripts --no-audit --no-fund postman-cli@1.88.0
+
+      - name: Aplicar las migraciones
+        working-directory: backend
+        run: |
+          alembic upgrade head
+
+      - name: Arrancar la API
+        working-directory: backend
+        run: |
+          # Secreto de usar y tirar, distinto en cada ejecucion.
+          export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+          for intento in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "La API no respondio a tiempo."
+          cat "$RUNNER_TEMP/api.log"
+          exit 1
+
+      - name: Ejecutar la coleccion
+        # --no-report-events: no envia resultados ni datos de uso a Postman.
+        run: |
+          "$RUNNER_TEMP/postman/node_modules/.bin/postman" collection run postman/collections/RetroGameLog \
+            --environment postman/environments/local.environment.yaml \
+            --no-report-events
+
+      - name: Mostrar el registro de la API si algo fallo
+        if: failure()
+        run: |
+          cat "$RUNNER_TEMP/api.log" || true
