@@ -2,6 +2,9 @@ import os
 
 # Base de datos desechable de pruebas (ver backend/README.md). Se puede sobrescribir con DATABASE_URL.
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:55432/test")
+# Valor solo para los tests, no es un secreto: la API exige JWT_SECRET para arrancar. Se asigna
+# siempre, para que los tests no dependan de lo que haya en el entorno de quien los ejecuta.
+os.environ["JWT_SECRET"] = "clave-solo-para-pruebas-no-usar-en-produccion"
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
