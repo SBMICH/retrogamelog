@@ -58,17 +58,18 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
-Ejecutar los tests:
+Levantar la API. Necesita dos variables de entorno: `DATABASE_URL` (con los datos de tu `.env`) y `JWT_SECRET`, que firma los tokens de sesión. Desde `backend/`:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest
-```
-
-Levantar la API (documentación interactiva en http://127.0.0.1:8000/docs):
-
-```powershell
+$env:DATABASE_URL = "postgresql+psycopg://usuario:clave@localhost:5432/retrogamelog"
+$env:JWT_SECRET = .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
+.\.venv\Scripts\alembic.exe upgrade head
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
+
+La documentación interactiva queda en http://127.0.0.1:8000/docs.
+
+Los tests usan una base de datos desechable y borran sus tablas: no los apuntes a tu base de desarrollo. Cómo ejecutarlos y el resto de la configuración están en [backend/README.md](backend/README.md).
 
 ## Stack previsto
 
