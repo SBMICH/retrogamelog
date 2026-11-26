@@ -103,7 +103,8 @@ def test_registro_ignora_campos_que_no_le_corresponden(client):
 
 @pytest.mark.parametrize("username", ["abc", "a" * 30, "Ana_Perez-99", "___", "123"])
 def test_username_valido(client, username):
-    assert registrar(client, username=username).status_code == 201
+    # Una contraseña que no contiene ninguno de los nombres probados.
+    assert registrar(client, username=username, password="Zq7-llave-segura").status_code == 201
 
 
 @pytest.mark.parametrize(
@@ -118,7 +119,9 @@ def test_username_invalido(client, db, username):
     assert contar_usuarios(db) == 0
 
 
-@pytest.mark.parametrize("password", ["a" * 8, "a" * 128, " " * 8, "contraseña con ñ y €"])
+@pytest.mark.parametrize(
+    "password", ["abcdefg1", "a" * 127 + "1", "a1" + " " * 6, "contraseña con ñ y € 7"]
+)
 def test_contrasena_valida_sirve_para_iniciar_sesion(client, password):
     assert registrar(client, password=password).status_code == 201
     assert iniciar_sesion(client, password=password).status_code == 200
