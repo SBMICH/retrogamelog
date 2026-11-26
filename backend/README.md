@@ -142,6 +142,25 @@ Remove-Item Env:RETROACHIEVEMENTS_API_KEY
 
 Antes de publicar la demo hay que confirmar con RetroAchievements (canal `#coders` de su Discord) que sus términos permiten guardar y mostrar estos datos en una app pública.
 
+## Datos iniciales
+
+Carga los catálogos compartidos de modelos de dispositivo (`device_models`) y emuladores (`emulators`). Desde `backend/`, con las migraciones ya aplicadas:
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://..."
+.\.venv\Scripts\python.exe -m app.seeds
+```
+
+Se puede ejecutar las veces que haga falta: solo inserta lo que falta, y nunca modifica ni borra filas, incluidas las añadidas a mano. Dos nombres que solo se diferencian en mayúsculas o espacios se consideran el mismo. Como no modifica ni borra, cambiar un nombre en el archivo añade una fila nueva y deja la anterior; quitar una entrada del archivo no la quita de la base.
+
+Los datos están en `app/seeds/catalog.json`. Para añadir un modelo o un emulador:
+
+1. Verifica el nombre en el sitio oficial del fabricante o del proyecto.
+2. Agrega la línea al archivo. Reglas:
+   - Dispositivos: `brand` es la marca y `name` el nombre comercial completo, con la marca delante (`"Retroid Pocket 5"`, `"Anbernic RG35XX H"`). La excepción es Steam Deck, cuyo nombre no incluye a Valve.
+   - Emuladores: el nombre como lo escribe el proyecto. Los núcleos de RetroArch van como `"RetroArch (Núcleo)"`.
+3. Ejecuta el comando. Si el archivo tiene un error (JSON inválido, entradas repetidas, textos vacíos o demasiado largos), lo indica y no carga nada.
+
 ## Tests
 
 Los tests usan PostgreSQL real y **borran todas las tablas** al terminar, así que nunca apuntes `DATABASE_URL` a una base con datos. Usa un contenedor desechable:
