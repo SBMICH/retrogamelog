@@ -1,0 +1,45 @@
+$kind: http-request
+description: >-
+  Se repite seis veces con una contraseña incorrecta: cinco respuestas 401 y la sexta 429. Usa un
+  correo sin cuenta, porque el bloqueo se aplica igual. La repetición solo ocurre al ejecutar la
+  colección completa; con el botón Send hay que pulsar seis veces.
+method: POST
+url: '{{baseUrl}}/api/v1/auth/login'
+order: 8000
+body:
+  type: urlencoded
+  content:
+    - key: username
+      value: '{{correoBloqueo}}'
+    - key: password
+      value: incorrecta-0
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (!pm.collectionVariables.get('correoBloqueo')) {
+          const azar = Math.random().toString(36).slice(2, 10);
+          pm.collectionVariables.set('correoBloqueo', 'bloqueo_' + azar + '@example.com');
+          pm.collectionVariables.set('intento', 0);
+      }
+      pm.collectionVariables.set('intento', Number(pm.collectionVariables.get('intento')) + 1);
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const intento = Number(pm.collectionVariables.get('intento'));
+
+      if (intento <= 5) {
+          pm.test('401: fallo número ' + intento, function () {
+              pm.response.to.have.status(401);
+          });
+          pm.execution.setNextRequest(pm.info.requestName);
+      } else {
+          pm.test('429: correo bloqueado al sexto intento', function () {
+              pm.response.to.have.status(429);
+              const espera = Number(pm.response.headers.get('Retry-After'));
+              pm.expect(espera).to.be.within(1, 900);
+          });
+          // La siguiente ejecución empieza de cero con otro correo.
+          pm.collectionVariables.unset('correoBloqueo');
+          pm.collectionVariables.unset('intento');
+      }
+    language: text/javascript

@@ -1,0 +1,13 @@
+$kind: http-request
+description: Comprueba que la API responde.
+method: GET
+url: '{{baseUrl}}/health'
+order: 1000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('200: la API está viva', function () {
+          pm.response.to.have.status(200);
+          pm.expect(pm.response.json()).to.eql({ status: 'ok' });
+      });
+    language: text/javascript

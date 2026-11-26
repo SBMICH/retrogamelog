@@ -1,0 +1,13 @@
+$kind: http-request
+description: Sin token no se puede ver ninguna cuenta.
+method: GET
+url: '{{baseUrl}}/api/v1/me'
+order: 7000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('401: hace falta iniciar sesión', function () {
+          pm.response.to.have.status(401);
+          pm.expect(pm.response.headers.get('WWW-Authenticate')).to.eql('Bearer');
+      });
+    language: text/javascript

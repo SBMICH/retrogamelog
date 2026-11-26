@@ -1,0 +1,42 @@
+$kind: http-request
+description: >-
+  Crea una cuenta de prueba nueva. Antes de enviar, inventa nombre, correo y contraseña y los
+  guarda como variables para las peticiones siguientes.
+method: POST
+url: '{{baseUrl}}/api/v1/auth/register'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{correo}}",
+      "username": "{{usuario}}",
+      "password": "{{clave}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const azar = () => Math.random().toString(36).slice(2, 10);
+      const usuario = 'pm_' + azar();
+      pm.collectionVariables.set('usuario', usuario);
+      pm.collectionVariables.set('correo', usuario + '@example.com');
+      // Cumple las reglas: letras y números, y no contiene el usuario ni el correo.
+      pm.collectionVariables.set('clave', 'Zk7-' + azar() + '-' + azar());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('201: cuenta creada', function () {
+          pm.response.to.have.status(201);
+          const cuenta = pm.response.json();
+          pm.expect(cuenta.email).to.eql(pm.collectionVariables.get('correo'));
+          pm.expect(cuenta.username).to.eql(pm.collectionVariables.get('usuario'));
+      });
+
+      pm.test('La respuesta no incluye la contraseña ni su hash', function () {
+          pm.expect(pm.response.json()).to.not.have.any.keys('password', 'password_hash');
+          pm.expect(pm.response.text()).to.not.include(pm.collectionVariables.get('clave'));
+      });
+    language: text/javascript
