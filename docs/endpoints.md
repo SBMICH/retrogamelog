@@ -22,6 +22,7 @@ API REST con FastAPI. Documentación interactiva generada automáticamente en `/
 | 401 Unauthorized | Falta el token o no es válido |
 | 404 Not Found | No existe, o pertenece a otro usuario (no se revela cuál de las dos) |
 | 409 Conflict | Duplicado (ej.: email ya registrado, juego ya en tu registro) |
+| 429 Too Many Requests | Demasiados intentos de inicio de sesión fallidos con un correo |
 | 422 Unprocessable Entity | Datos con formato incorrecto (lo genera FastAPI automáticamente) |
 
 ## Sistema
@@ -34,8 +35,8 @@ API REST con FastAPI. Documentación interactiva generada automáticamente en `/
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| POST | `/api/v1/auth/register` | No | Crea una cuenta. Cuerpo: `email`, `username` (nombre público), `password`. El email se guarda en minúsculas. 409 si el email o el username ya existen. Responde 201 con el usuario (sin contraseña) |
-| POST | `/api/v1/auth/login` | No | Inicia sesión con **email y contraseña**. Se envía como formulario (flujo OAuth2 password); el campo del formulario se llama `username` por el estándar, pero lleva el email. Devuelve `{ "access_token": "...", "token_type": "bearer" }` |
+| POST | `/api/v1/auth/register` | No | Crea una cuenta. Cuerpo: `email`, `username` (nombre público), `password`. El email se guarda en minúsculas. La contraseña tiene de 8 a 128 caracteres, con letra y número, no es común ni contiene el username o el correo (422 si no cumple). 409 si el email o el username ya existen. Responde 201 con el usuario (sin contraseña) |
+| POST | `/api/v1/auth/login` | No | Inicia sesión con **email y contraseña**. Se envía como formulario (flujo OAuth2 password); el campo del formulario se llama `username` por el estándar, pero lleva el email. Devuelve `{ "access_token": "...", "token_type": "bearer" }`. Tras 5 fallos con un mismo correo responde 429 con `Retry-After` durante 15 minutos |
 | GET | `/api/v1/me` | Sí | Datos del usuario autenticado |
 
 ## Catálogo (H2, H3)

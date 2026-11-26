@@ -1,7 +1,16 @@
 from typing import Annotated, Literal
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import AfterValidator, BaseModel, Field, TypeAdapter
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    field_validator,
+)
+
+from app.core.password_policy import password_problem
 
 # Límite de una dirección de correo (RFC 5321); la columna admite 255.
 MAX_EMAIL_LENGTH = 254
@@ -39,6 +48,15 @@ class UserRegister(BaseModel):
             json_schema_extra={"format": "password"},
         ),
     ]
+
+    # Se declara después de email y username para poder compararla con ellos.
+    @field_validator("password")
+    @classmethod
+    def _cumple_las_reglas(cls, valor: str, info: ValidationInfo) -> str:
+        problema = password_problem(valor, info.data.get("username"), info.data.get("email"))
+        if problema:
+            raise ValueError(problema)
+        return valor
 
 
 class Token(BaseModel):

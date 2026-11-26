@@ -63,7 +63,9 @@ Para probar en `/docs`: registra una cuenta, pulsa **Authorize**, escribe el ema
 
 Cómo funciona:
 
-- `username`: de 3 a 30 caracteres entre letras sin acentos, números, `_` y `-`. Contraseña: de 8 a 128 caracteres. El email se guarda en minúsculas.
+- `username`: de 3 a 30 caracteres entre letras sin acentos, números, `_` y `-`. El email se guarda en minúsculas.
+- Contraseña (solo al registrarse): de 8 a 128 caracteres, con al menos una letra y un número, que no esté en la lista de contraseñas comunes (`app/core/common_passwords.txt`) y que no contenga el nombre de usuario ni la parte del correo anterior a la arroba.
+- Límite de intentos: tras 5 inicios de sesión fallidos con un mismo correo, ese correo queda bloqueado 15 minutos y la API responde 429 con la cabecera `Retry-After`, aunque la contraseña sea correcta. Se aplica igual a correos sin cuenta. Un inicio correcto reinicia el contador, y los fallos de hace más de 15 minutos no se acumulan. El estado vive en la tabla `login_attempts`.
 - Las contraseñas se guardan solo como hash argon2id.
 - Los tokens son JWT firmados con HS256 (el algoritmo lo fija el servidor), con `sub` (ID del usuario) y `exp`.
 - Las respuestas 422 de toda la API indican `type`, `loc` y `msg`, pero no repiten lo que envió el cliente.
@@ -72,9 +74,26 @@ Para una ruta nueva bajo `/me`, pide la dependencia `CurrentUser` (en `app/api/d
 
 No actives el nivel `DEBUG` del registro `sqlalchemy.engine` con datos reales: imprime las filas leídas, incluidos los hashes de contraseñas.
 
+## Usuario de desarrollo
+
+Para probar en tu máquina sin registrarte. Crea el usuario `user123` (correo `user123@example.com`) con la contraseña de `DEV_USER_PASSWORD`, cuyo valor de ejemplo está en `.env.example`. Con la base levantada y migrada, desde `backend/`:
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://usuario:clave@localhost:5432/retrogamelog"
+$env:APP_ENV = "development"
+$env:DEV_USER_PASSWORD = "el valor de .env.example"
+.\.venv\Scripts\python.exe -m app.dev_user
+```
+
+Solo funciona con `APP_ENV=development` y una base en `localhost`: comprueba la URL (solo admite los parámetros `application_name`, `connect_timeout` y `sslmode`) y también la dirección a la que se conectó de verdad. No lo uses con un túnel o un proxy en `localhost` que lleve a una base remota: para el comando esa conexión parece local. No cambia cuentas que ya existan. La API no tiene ninguna excepción para este usuario: el inicio de sesión no aplica las reglas de contraseña y el límite de intentos le afecta como a cualquiera.
+
 ## Deuda conocida
 
-- No hay límite de intentos de inicio de sesión ni de registros. Además de permitir adivinar contraseñas, cada intento calcula un hash argon2 que usa 64 MiB de memoria, así que muchas peticiones simultáneas pueden agotar un servidor pequeño. Hay que resolverlo antes de exponer la API en público.
+- El límite de intentos es por correo: alguien puede bloquear una cuenta ajena 15 minutos fallando a propósito, y puede probar pocas contraseñas contra muchos correos distintos. Antes de publicar hace falta limitar además por dirección IP.
+- La tabla `login_attempts` guarda una fila por cada correo probado y todavía no se limpia.
+- Un inicio correcto borra el contador aunque otro acabara de provocar el bloqueo en ese mismo instante.
+- El registro no tiene límite, y cada hash argon2 usa 64 MiB de memoria: muchas peticiones simultáneas pueden agotar un servidor pequeño.
+- No hay límite de tamaño del cuerpo de las peticiones.
 - El registro responde 409 si el email ya existe (lo pide el contrato), así que permite averiguar qué emails tienen cuenta.
 - No hay token de refresco, ni cierre de sesión que revoque tokens, ni recuperación de contraseña, ni verificación de correo.
 
